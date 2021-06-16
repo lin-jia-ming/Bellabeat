@@ -1,0 +1,14 @@
+Bellabeat_dailyActivity_clean
+- Script for data cleaning of dailyActivity_merged table
+
+
+Bellabeat_sleepDay_clean
+- Script for data cleaning of sleepDay_merged table
+
+
+Bellabeat
+- Script for data analysis and visualization
+
+
+Bellabeat_no_code_chunk
+- Script for data analysis and visualization (code chunk for visualization removed)

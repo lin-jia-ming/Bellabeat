@@ -1,0 +1,332 @@
+---
+title: "Google Data Analytics Capstone Project - Bellabeat"
+author: "Lin Jiaming"
+date: "4 June 2021"
+output: html_document
+---
+
+## Description
+
+**Activity:** Data Cleaning  
+**Dataset:** FitBit Fitness Tracker Data (Kaggle)  
+**Table:** dailyActivity_merged.csv
+
+### Load Libraries
+
+```{r library, message=FALSE}
+library(tidyverse)
+library(janitor)
+library(lubridate)
+library(skimr)
+```
+
+### Import Data
+
+```{r import data, message=FALSE}
+activity_df <- read_csv('dailyActivity_merged.csv')
+```
+
+### Column Header Check
+
+Manually check column headers using glimpse function  
+
+```{r column header check}
+glimpse(activity_df)
+```
+
+Clean column headers using clean_names function
+
+```{r column header clean}
+activity_df <- clean_names(activity_df)
+
+colnames(activity_df)
+```
+
+### Data Type Check
+
+From glimpse, it is observed that:  
+
+* activity_date data type is character  
+* id data type is double  
+
+Convert:  
+
+* activity_date data type to date  
+* id data type to factor  
+
+```{r data type}
+activity_df$activity_date <- mdy(activity_df$activity_date)
+
+activity_df$id <- factor(activity_df$id)
+```
+
+### Missing Values Check
+
+No missing values found
+
+```{r missing values}
+skim_without_charts(activity_df)
+```
+
+### Duplicates Check
+
+No duplicates found
+
+```{r duplicates}
+activity_df %>% 
+  group_by(id, activity_date) %>% 
+  filter(n() > 1)
+```
+
+### Extra Space Check
+
+Not applicable  
+No character data type
+
+### Inconsistent Field Length Check
+
+Not applicable
+
+### Date Range Check
+
+Start date = 2016-04-12  
+End date = 2016-05-12
+
+```{r date range}
+activity_df %>% summarise(start_date = min(.$activity_date), 
+                          end_date = max(.$activity_date))
+```
+
+### Categorization Check
+
+Not applicable
+
+### Data Count Check
+
+There are 940 total records  
+There are 33 unique users, and 31 unique dates
+
+```{r data count}
+activity_df %>% summarise(record_cnt = nrow(.), 
+                          user_cnt = n_distinct(.$id), 
+                          date_cnt = n_distinct(.$activity_date), 
+                          user_date_cnt = n_distinct(.$id, .$activity_date))
+```
+
+Only 21 users tracked their data for all 31 days
+
+```{r users @ 31 days}
+activity_df %>% 
+  group_by(id) %>% 
+  summarise(days_tracked = length(activity_date)) %>% 
+  group_by(days_tracked) %>% 
+  summarise(user_count = length(id)) %>% 
+  arrange(-days_tracked)
+```
+
+All users track their data in running days
+
+```{r users @ running days}
+# Date_diff > 1 day indicates that users did not track their data in running days
+activity_df %>% 
+  group_by(id) %>% 
+  summarise(date_diff = activity_date - lag(activity_date, 1)) %>% 
+  group_by(date_diff) %>% 
+  summarise(num = length(id))
+```
+
+### Data Range Check
+
+total_steps_min = 0  
+
+total_distance_min = 0  
+total_distance_max = 28.03  
+
+```{r data range}
+activity_df %>% 
+  select(total_steps, total_distance, tracker_distance, logged_activities_distance, calories) %>% 
+  summary()
+```
+
+There are 77 records where total_steps = 0  
+There are 73 records where total_steps = 0, but calories != 0  
+**Exclude these records for specific analysis**
+
+```{r data range @ total steps}
+activity_df %>% 
+  filter(total_steps == 0) %>% 
+  nrow()
+
+activity_df %>% 
+  filter(total_steps == 0, calories != 0) %>% 
+  nrow()
+```
+
+There are 78 records where total_distance = 0  
+There are 74 records where total_distance = 0, but calories != 0  
+**Exclude these records for specific analysis**
+
+```{r data range @ total distance}
+activity_df %>% 
+  filter(total_distance == 0) %>% 
+  nrow()
+
+activity_df %>% 
+  filter(total_distance == 0, calories != 0) %>% 
+  nrow()
+```
+
+There are 77 records where total_distance = 0 and total_steps = 0  
+There are 1 records where total_distance = 0 and total_steps != 0
+
+```{r data range @ total steps and total distance}
+activity_df %>% 
+  filter(total_distance == 0, total_steps == 0) %>% 
+  nrow()
+
+activity_df %>% 
+  filter(total_distance == 0, total_steps != 0) %>% 
+  nrow()
+```
+
+Investigate if max of total_distance make sense  
+Calculate *speed* to determine if total_distance make sense
+
+Assume units of distance to be in *km*, instead of miles ([Reference](https://dev.fitbit.com/build/reference/web-api/basics/))
+
+Fitbit definition for minutes ([Reference](https://community.fitbit.com/t5/Web-API-Development/Daily-Activity-Summary-Data-Definition-Questions/td-p/3087077)):  
+
+* sedentary_minutes, less than 1.5 METs  
+* lightly_active_minutes, between 1.5-3.0 METs  
+* fairly_active_minutes, between 3.0-6.0 METs  
+* very_active_minutes, greater than 6.0 METs  
+
+Wikipedia definition for MET ([Reference](https://en.wikipedia.org/wiki/Metabolic_equivalent_of_task)):  
+
+* 1.5 METs: writing, deskwork, using computer  
+* 2.0 METs: walking slowly
+
+Therefore, to calculate speed, one must *exclude sedentary_minutes*
+
+Speed comparison ([Reference](https://www.runnersworld.com/uk/training/marathon/a27787958/average-marathon-finish-time)):  
+
+* Average marathon runner speed (male) = 60/6.43 = 9.33 km/h  
+* Average marathon runner speed (female) = 60/7.26 = 8.26 km/h  
+* Speed of fastest human = 37.58 km/h ([Reference](https://www.britannica.com/story/how-fast-is-the-worlds-fastest-human))  
+
+The data's **max speed (very_active) of 10.48 km/h** is **reasonable**  
+The data's **max speed (total_distance) of 8.31km/h** is **reasonable**, therefore **total_distance is reasonable** too  
+
+```{r data range @ speed}
+activity_df %>% 
+  mutate(spd_total = total_distance / (very_active_minutes + 
+                                       fairly_active_minutes + 
+                                       lightly_active_minutes) * 60) %>% 
+  mutate(spd_very_active = very_active_distance / very_active_minutes * 60) %>% 
+  mutate(spd_fairly_active = moderately_active_distance / fairly_active_minutes * 60) %>% 
+  mutate(spd_lightly_active = light_active_distance / lightly_active_minutes * 60) %>% 
+  select(spd_total, spd_very_active, spd_fairly_active, spd_lightly_active) %>% 
+  round(2) %>% 
+  na_if(Inf) %>% 
+  summary()
+```
+
+### Cross Field Check
+
+Check total_distance vs tracker_distance  
+There are 15 records where total_distance != tracker_distance  
+It is unclear what does tracker_distance represents
+
+```{r cross field @ tracker distance}
+activity_df %>% 
+  filter(total_distance != tracker_distance) %>% 
+  mutate(dist_diff = round(total_distance - tracker_distance, 2)) %>% 
+  mutate(dist_diff_percent = round(dist_diff / total_distance * 100, 2)) %>% 
+  select(id, activity_date, total_distance, tracker_distance, dist_diff, dist_diff_percent) %>% 
+  arrange(-dist_diff_percent)
+```
+
+Check total_distance vs sum of Distance  
+There are 41 records where difference between total_distance and sum of distance > 1%
+
+```{r cross field @ sum of distance}
+activity_df %>% 
+  mutate(dist_sum = very_active_distance + 
+                    moderately_active_distance + 
+                    light_active_distance + 
+                    sedentary_active_distance) %>% 
+  filter(total_distance != dist_sum) %>% 
+  mutate(dist_diff = round(total_distance - dist_sum, 2)) %>% 
+  mutate(dist_diff_percent = round(dist_diff / total_distance * 100, 2)) %>% 
+  select(id, activity_date, total_distance, dist_sum, dist_diff, dist_diff_percent) %>% 
+  filter(dist_diff_percent > 1) %>% 
+  arrange(-dist_diff_percent, -dist_diff)
+```
+
+Check sum of Minutes = 1440 (24 hours * 60 minutes)  
+There are 478 records where sum of minutes = 1440  
+There are 462 records where sum of minutes != 1440
+
+```{r cross field @ sum of minutes 1}
+activity_df %>% 
+  mutate(minutes_total = very_active_minutes + 
+                         fairly_active_minutes + 
+                         lightly_active_minutes + 
+                         sedentary_minutes) %>% 
+  filter(minutes_total == 1440) %>% 
+  #filter(minutes_total != 1440) %>% 
+  group_by(minutes_total) %>% 
+  summarise(number_of_records = length(id)) %>% 
+  summarise(sum_of_records = sum(number_of_records))
+```
+
+Check sum of [Minutes in dailyActivity.csv] and [total_time_in_bed in sleepDay.csv] = 1440 (24 hours * 60 minutes)  
+There are 604 records where sum of minutes = 1440  
+There are 155 records where sum of minutes > 1440  
+There are 181 records where sum of minutes < 1440  
+Investigation is needed with regards to how Fitbit measure their statistics
+
+```{r cross field @ sum of minutes 2, message=FALSE}
+# Import sleepDay.csv
+sleep_df <- read_csv('sleepDay_clean.csv')
+
+# Convert id data type to factor
+sleep_df$id <- factor(sleep_df$id)
+
+# Manually check column names
+glimpse(sleep_df)
+```
+```{r}
+# Sum of [Minutes in dailyActivity.csv] and [TotalTimeInBed in sleepDay.csv]
+left_join(activity_df, sleep_df, by = c('id','activity_date' = 'sleep_day')) %>% 
+  mutate(minutes_total = very_active_minutes + 
+                         fairly_active_minutes + 
+                         lightly_active_minutes + 
+                         sedentary_minutes + 
+                         coalesce(total_time_in_bed,0)) %>% 
+  filter(minutes_total == 1440) %>% 
+  #filter(minutes_total > 1440) %>% 
+  #filter(minutes_total < 1440) %>% 
+  group_by(minutes_total) %>% 
+  summarise(number_of_records = length(id)) %>% 
+  summarise(sum_of_records = sum(number_of_records))
+```
+
+### Cross Table Check
+
+All 410 keys (id and date) in sleepDay.csv, are in dailyActivity.csv
+
+```{r cross table}
+count(activity_df)
+count(sleep_df)
+inner_join(activity_df, sleep_df, by = c('id','activity_date' = 'sleep_day'))
+```
+
+### Export Data
+
+Export table with all records and fields  
+Data where total_distance = 0 and total_steps = 0 will be filtered for specific analysis
+
+```{r export data}
+write_csv(activity_df, 'dailyActivity_clean.csv')
+```

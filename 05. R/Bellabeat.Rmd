@@ -1,0 +1,499 @@
+---
+title: "Google Data Analytics Capstone Project - Bellabeat"
+author: "Lin Jiaming"
+date: "7 June 2021"
+output: html_document
+---
+
+## Description
+
+**Activity:** Data Analysis, Data Visualisation  
+**Dataset:** FitBit Fitness Tracker Data (Kaggle)  
+**Table:** dailyActivity_clean.csv, sleepDay_clean.csv  
+
+### Load Libraries
+
+```{r library, message=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(lubridate)
+```
+
+### Import Data
+
+```{r import data, message=FALSE}
+activity_df = read_csv('dailyActivity_clean.csv')
+sleep_df = read_csv('sleepDay_clean.csv')
+```
+
+### Inspect Data
+
+Inspect column header and data type only  
+
+Data is cleaned prior this activity, refer to:  
+
+* Bellabeat_dailyActivity_clean.html
+* Bellabeat_sleepDay_clean.html
+
+```{r inspect column header + data type}
+glimpse(activity_df)
+glimpse(sleep_df)
+```
+```{r data type update}
+# Update data types to factor, for visualisation purposes
+activity_df$id <- factor(activity_df$id)
+sleep_df$id <- factor(sleep_df$id)
+sleep_df$total_sleep_records <- factor(sleep_df$total_sleep_records)
+```
+
+## Summary Descriptions
+
+**Activity Table:**
+
+* Total records = 940
+* Unique users = 33
+* Unique dates = 31
+* Start date = 2016-04-12  
+* End date = 2016-05-12
+
+**Sleep Table:**
+
+* Total records = 410
+* Unique users = 24
+* Unique dates = 31
+* Start date = 2016-04-12  
+* End date = 2016-05-12
+
+```{r summary}
+activity_df %>% summarise(record_cnt = nrow(.), 
+                          user_cnt = n_distinct(.$id), 
+                          date_cnt = n_distinct(.$activity_date), 
+                          user_date_cnt = n_distinct(.$id, .$activity_date),
+                          start_date = min(.$activity_date), 
+                          end_date = max(.$activity_date))
+
+sleep_df %>% summarise(record_cnt = nrow(.), 
+                       user_cnt = n_distinct(.$id), 
+                       date_cnt = n_distinct(.$sleep_day), 
+                       user_date_cnt = n_distinct(.$id, .$sleep_day),
+                       start_date = min(.$sleep_day), 
+                       end_date = max(.$sleep_day))
+```
+
+## Visualisations
+
+#### User Activity: Tracking *Total Steps*
+
+33 users tracked their data  
+21 out of 33 users (64%) tracked their data for **all days** -- *see non-blank rows in visual*  
+All users tracked their data in **running days**
+
+```{r user activity heat map 1}
+# Y-axis shows the id of all 33 users
+ggplot(activity_df) + 
+  geom_tile(aes(activity_date, id, fill = total_steps)) +
+  scale_fill_continuous(trans = 'reverse') +                # reverse fill scale
+  theme(panel.grid = element_blank(),
+        panel.background = element_blank()) + 
+  labs(title = 'User Steps per Day', 
+       subtitle = "Every user's steps for each day",
+       x = 'Date', y = 'User',
+       fill = 'Steps') +                                    # rename legend
+  guides(fill = guide_legend(reverse = TRUE)) +             # reverse legend
+  scale_x_date(date_breaks = '4 day', 
+               date_labels = '%d-%b',
+               expand = c(0,0)) +                           # fill gap between axis and plot
+  scale_y_discrete(limits = rev)                            # reverse y-axis
+```
+```{r}
+activity_df %>% 
+  group_by(id) %>% 
+  summarise(days_tracked = length(activity_date)) %>% 
+  group_by(days_tracked) %>% 
+  summarise(user_count = length(id)) %>% 
+  arrange(-days_tracked)
+```
+
+--------------------------------------------------------------------------------
+
+#### User Activity: Tracking *Total Steps*
+
+77 out of 940 records (8%) registered **total steps of 0** for the entire day
+
+```{r user activity heat map 2}
+# Convert steps to discrete variable
+activity_df_steps <- activity_df %>%
+  mutate(category = if_else(total_steps == 0, '= 0', '> 0'))
+
+# Y-axis shows the id of all 33 users
+ggplot(activity_df_steps) + 
+  geom_tile(aes(activity_date, id, fill = category)) +
+  scale_fill_manual(values = c('#e15759', '#4e79a7')) +
+  theme(panel.grid = element_blank(),
+        panel.background = element_blank()) + 
+  labs(title = 'User Steps per Day', 
+       subtitle = "Every user's steps for each day",
+       x = 'Date', y = 'User',
+       fill = 'Steps') +                                # rename legend
+  scale_x_date(date_breaks = '4 day', 
+               date_labels = '%d-%b',
+               expand = c(0,0)) +                       # fill gap between axis and plot
+  scale_y_discrete(limits = rev)                        # reverse y-axis
+```
+```{r}
+activity_df %>% 
+  filter(total_steps == 0) %>% 
+  nrow()
+```
+
+--------------------------------------------------------------------------------
+
+#### User Activity: Tracking *Sleep*
+
+24 out of 33 users (73%) tracked their sleep  
+3 out of 33 users (9%) tracked their sleep data for **all days** -- *see non-blank rows in visual*  
+5 out of 33 users (15%) tracked their sleep data in **running days**
+
+```{r user activity heat map 3}
+# Y-axis shows the id of 24 users who tracked their sleep
+ggplot(sleep_df) + 
+  geom_tile(aes(sleep_day, id, fill = total_minutes_asleep/60)) +
+  scale_fill_continuous(trans = 'reverse') +            # reverse fill scale
+  theme(panel.grid = element_blank(),
+        panel.background = element_blank()) + 
+  labs(title = 'User Sleep Hours per Day', 
+       subtitle = "Every user's sleep hours for each day",
+       x = 'Date', y = 'User',
+       fill = 'Sleep Hours') +                          # rename legend
+  guides(fill = guide_legend(reverse = TRUE)) +         # reverse legend
+  scale_x_date(date_breaks = '4 day', 
+               date_labels = '%d-%b',
+               expand = c(0,0)) +                       # fill gap between axis and plot
+  scale_y_discrete(limits = rev)                        # reverse y-axis
+```
+```{r}
+sleep_df %>% 
+  group_by(id) %>% 
+  summarise(days_tracked = length(sleep_day)) %>% 
+  group_by(days_tracked) %>% 
+  summarise(user_count = length(id)) %>% 
+  arrange(-days_tracked)
+```
+```{r}
+# 24 users tracked their sleep data
+# 5 users tracked their sleep data in running days
+# 19 users did not track their sleep data in running days
+sleep_df %>% 
+  group_by(id) %>% 
+  summarise(date_diff = sleep_day - lag(sleep_day, 1)) %>% 
+  filter(date_diff != 1) %>% 
+  distinct(id) %>% 
+  nrow()
+```
+
+--------------------------------------------------------------------------------
+
+#### Filter Data
+
+The **following visuals** will use **filtered data**, whereby records with total steps = 0 or total distance = 0 are removed.
+
+```{r filter data}
+activity_filter_df <- activity_df %>% 
+  filter(total_steps != 0 | total_distance != 0)
+```
+
+--------------------------------------------------------------------------------
+
+#### User Profile: Users by *Steps*
+
+* 7 inactive users (21%)
+* 19 active users (58%)
+* 7 very active users (21%)
+
+```{r user profile pie chart}
+activity_df_profile <- activity_filter_df %>% 
+  group_by(id) %>% 
+  summarise(user_avg_steps = mean(total_steps)) %>%                         # average steps for each user
+  mutate(user_profile = case_when(user_avg_steps < 5000 ~ 'Inactive',
+                                  user_avg_steps >= 10000 ~ 'Very Active',
+                                  TRUE ~ 'Active')) %>%                     # classify each user profile
+  group_by(user_profile) %>% 
+  summarise(user_count = n_distinct(id)) %>% 
+  mutate(percent = round(user_count / sum(.$user_count) * 100)) %>%         # calculate percentage
+  mutate(y_position = 100 - (cumsum(percent) - 0.5*percent) + 2)            # position of each pie segment 
+
+ggplot(activity_df_profile) + 
+  geom_bar(aes('', percent, fill = user_profile), 
+           stat = 'identity',
+           width = 1,  
+           colour = 'white') + 
+  coord_polar('y', start = 0) +                                             # create pie chart
+  scale_fill_manual(values = c('#4e79a7', '#e15759', '#59a14f')) +
+  theme_void() +
+  theme(legend.position = 'none',
+        plot.caption = element_text(hjust = 0)) +
+  labs(title = 'User Profile by Steps', 
+       subtitle = 'Steps are averaged individually for each user',
+       caption = 'Inactive: less than 5,000 steps per day \nActive: between 5,000 and 9,999 steps per day \nVery Active: at least 10,000 steps per day') +
+  geom_text(aes('', y = y_position, label = paste0(user_profile,'\n',percent,'%')), 
+            color = 'white', 
+            size = 5)
+```
+
+--------------------------------------------------------------------------------
+
+#### User Profile: Users by *Steps*
+
+There is a **wide and normal distribution** of inactive, active, and very active users  
+The average user takes an average of **7928 steps daily**, below the recommended 10,000 steps daily ([Reference](https://www.healthline.com/health/how-many-steps-a-day#Why-10,000-steps?
+))
+
+```{r user profile bar chart 1}
+activity_df_user_steps <- activity_filter_df %>% 
+  group_by(id) %>% 
+  summarise(user_avg_steps = mean(total_steps)) %>%                 # average steps for each user
+  mutate(user_profile = case_when(user_avg_steps < 5000 ~ 'Inactive',
+                                  user_avg_steps >= 10000 ~ 'Very Active',
+                                  TRUE ~ 'Active'))                 # classify each user
+
+ggplot(activity_df_user_steps) + 
+  geom_bar(aes(reorder(id, user_avg_steps), user_avg_steps,         # reorder bars by steps
+               fill = factor(user_profile, levels = c('Inactive', 'Active', 'Very Active'))), 
+           stat = 'identity', 
+           width = 1, 
+           colour = 'white') +                                      # reorder legend by refactor user_profile
+  scale_fill_manual(values = c('#e15759', '#4e79a7', '#59a14f')) + 
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(), 
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        legend.title = element_blank(),
+        plot.caption = element_text(hjust = 0)) + 
+  labs(title = 'Average Daily Total Steps per User', 
+       subtitle = 'Steps are averaged individually for each user',
+       x = 'User', y = 'Average Daily Total Steps',
+       caption = 'Inactive: less than 5,000 steps per day \nActive: between 5,000 and 9,999 steps per day \nVery Active: at least 10,000 steps per day') +
+  scale_y_continuous(expand = c(0,0)) +                             # fill gap between axis and plot
+  geom_hline(aes(yintercept = mean(user_avg_steps))) +              # add average line
+  geom_text(aes(min(as.numeric(id)), mean(user_avg_steps), 
+                label = paste0('Average = ', round(mean(user_avg_steps)))), 
+            hjust = 0, vjust = -0.4) +
+  geom_hline(aes(yintercept = 10000)) +                             # add constant line
+  geom_text(aes(min(as.numeric(id)), 10000, 
+                label = paste0('Target = ', 10000)), 
+            hjust = 0, vjust = -0.4)
+# To-do: Add reference band using geom_rect()
+```
+
+--------------------------------------------------------------------------------
+
+#### User Profile: Users by *Exercise Minutes*
+
+There is a **wide distribution** of users  
+The average user exercises an average of **34 minutes weekly**, below the recommended 150 minutes daily ([Reference](https://www.cdc.gov/physicalactivity/basics/adults))
+
+```{r user profile bar chart 2}
+activity_df_user_mins <- activity_filter_df %>% 
+  mutate(ex_mins = very_active_minutes + fairly_active_minutes,
+         week = epiweek(.$activity_date)) %>%                       # categorise by day of week
+  group_by(id, week) %>% 
+  summarise(ex_mins_weekly = mean(ex_mins)) %>%                     # average weekly exercise minutes
+  group_by(id) %>% 
+  summarise(ex_mins_user = mean(ex_mins_weekly))                    # average weekly exercise minutes per user
+
+ggplot(activity_df_user_mins) + 
+  geom_bar(aes(id, ex_mins_user), 
+           stat = 'identity', 
+           width = 1, 
+           colour = 'white',
+           fill = '#4e79a7') +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(), 
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(),
+        plot.caption = element_text(hjust = 0))+ 
+  labs(title = 'Average Weekly Exercise Minutes per User', 
+       subtitle = 'Exercise minutes are averaged individually for each user',
+       caption = 'Exercise Minutes = Very Active Minutes + Fairly Active Minutes',
+       x = 'User', y = 'Average Weekly Exercise Minutes') +
+  scale_y_continuous(expand = c(0,0), limits = c(0,160)) +          # increase axis limits
+  geom_hline(aes(yintercept = mean(ex_mins_user))) +                # add average line
+  geom_text(aes(min(as.numeric(id)), mean(ex_mins_user), 
+                label = paste0('Average = ', round(mean(ex_mins_user)))), 
+            hjust = 0, vjust = -0.4) +
+  geom_hline(aes(yintercept = 150)) +                               # add constant line
+  geom_text(aes(min(as.numeric(id)), 150, 
+                label = paste0('Target = ', 150)), 
+            hjust = 0, vjust = -0.4)
+```
+
+--------------------------------------------------------------------------------
+
+#### User Profile: Users by *Time to Fall Asleep*
+
+Majority of the users (91%) have **no sleep issues**, and take an average of 25 minutes to fall asleep
+
+```{r user profile bar chart 3}
+sleep_df_user <- sleep_df %>% 
+  mutate(fall_asleep_time = total_time_in_bed - total_minutes_asleep) %>% 
+  group_by(id) %>% 
+  summarise(fall_asleep_time_user = mean(fall_asleep_time)) %>% 
+  mutate(category = if_else(fall_asleep_time_user > 90, 'Have Sleep Issues', 'No Sleep Issues'))
+
+ggplot(sleep_df_user) + 
+  geom_bar(aes(reorder(id, fall_asleep_time_user), fall_asleep_time_user, fill = category), 
+           stat = 'identity', 
+           width = 1, 
+           colour = 'white') +
+  scale_fill_manual(values = c('#e15759', '#4e79a7')) +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(), 
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        legend.title = element_blank(),
+        plot.caption = element_text(hjust = 0)) + 
+  labs(title = 'Time to Fall Asleep per User', 
+       subtitle = 'Time to fall asleep is averaged individually for each user',
+       caption = 'Users with sleep issues, require more than 90 minutes to fall asleep \nTime to Fall Asleep in Bed = Total Time In Bed - Total Minutes Asleep',
+       x = 'User', y = 'Time to Fall Asleep') +
+  scale_y_continuous(expand = c(0,0)) +                                   # fill gap between axis and plot
+  geom_hline(aes(yintercept = mean(fall_asleep_time_user)),               # add average line
+             subset(sleep_df_user, category == 'Have Sleep Issues')) +    # use subset of data
+  geom_text(aes(0, mean(fall_asleep_time_user), 
+                label = paste0('Average = ', round(mean(fall_asleep_time_user)))),
+            subset(sleep_df_user, category == 'Have Sleep Issues'), 
+            hjust = -0.1, vjust = -29) +
+  geom_hline(aes(yintercept = mean(fall_asleep_time_user)), 
+             subset(sleep_df_user, category == 'No Sleep Issues')) + 
+  geom_text(aes(0, mean(fall_asleep_time_user), 
+                label = paste0('Average = ', round(mean(fall_asleep_time_user)))),
+            subset(sleep_df_user, category == 'No Sleep Issues'), 
+            hjust = -0.1, vjust = -16) +
+  coord_flip()
+```
+
+--------------------------------------------------------------------------------
+
+## Appendix
+
+#### User Habit: *Activity* by Day of Week
+
+Users are **most active** on Tuesdays and Saturdays  
+Users are **least active** on Sundays  
+Trend for active minutes and total steps is generally **similar**, except for Friday  
+
+```{r user profile bar chart 4}
+activity_df_wd <- activity_filter_df %>% 
+  mutate(day_of_week = wday(activity_date, label = TRUE, abbr = TRUE)) %>% 
+  group_by(day_of_week) %>% 
+  summarise(avg_steps = round(mean(total_steps)), 
+            avg_mins = round(mean(very_active_minutes + fairly_active_minutes + lightly_active_minutes)))
+
+ggplot(activity_df_wd) + 
+  geom_bar(aes(reorder(day_of_week, -avg_steps), avg_steps, fill = 'Steps'),    # create legend by fill
+           stat = 'identity') +
+  geom_line(aes(reorder(day_of_week, -avg_steps), 20*avg_mins, colour = 'Active Minutes'), 
+            stat = 'identity', 
+            group = 1, 
+            size = 1.2) +
+  geom_point(aes(reorder(day_of_week, -avg_steps), 20*avg_mins), 
+             colour = '#f28e2b', size = 2) +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text.x = element_text(size = 11),
+        axis.text.y = element_blank(),
+        plot.caption = element_text(hjust = 0),
+        legend.key = element_blank(),
+        legend.title = element_blank()) + 
+  labs(title = 'Activity by Day of Week', 
+       subtitle = 'Measure is averaged across all user records',
+       caption = 'Active Minutes = Very Active Minutes + Fairly Active Minutes + Lightly Active Minutes') +
+  scale_x_discrete(expand = c(0,0)) +                                           # fill gap btw axis and plot
+  scale_y_continuous(expand = c(0,0), sec.axis = sec_axis(~./20)) +             # add secondary axis and scale
+  scale_fill_manual(values = c('Steps' = '#4e79a7')) +
+  scale_color_manual(values = c('Active Minutes' = '#f28e2b')) +                # create legend for combo chart
+  geom_text(aes(day_of_week, avg_steps, label = avg_steps), 
+            colour = 'white', size = 5, vjust = 2) + 
+  geom_text(aes(day_of_week, avg_mins, label = avg_mins), 
+            colour = 'black', size = 5, vjust = -12)
+```
+
+--------------------------------------------------------------------------------
+
+#### User Habit: *Sleep Hours* by Day of Week
+
+Users **sleep the most** on days transitioning to Sunday (~20-50 mins more)  
+Users **sleep the least** on days transitioning to Tuesday and Thursday (6.7 hours)  
+
+```{r user profile bar chart 5}
+sleep_df_wd <- sleep_df %>% 
+  mutate(day_of_week = wday(sleep_day, label = TRUE, abbr = TRUE)) %>% 
+  group_by(day_of_week) %>% 
+  summarise(avg_sleep_time = round(mean(total_minutes_asleep)/60,1))
+
+ggplot(sleep_df_wd) + 
+  geom_bar(aes(reorder(day_of_week, -avg_sleep_time), avg_sleep_time),       # reorder bars by DOW
+           stat = 'identity',
+           fill = '#4e79a7') +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        axis.title.x = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text.x = element_text(size = 11),
+        axis.text.y = element_blank()) + 
+  labs(title = 'Sleep Hours by Day of Week', 
+       subtitle = 'Measure is averaged across all user records',
+       y = 'Total Hours Asleep') +
+  scale_x_discrete(expand = c(0,0)) +                                        # fill gap between axis and plot
+  scale_y_continuous(expand = c(0,0)) + 
+  geom_text(aes(day_of_week, avg_sleep_time, label = avg_sleep_time), 
+            colour = 'white', size = 5, vjust = 2)
+```
+
+--------------------------------------------------------------------------------
+
+#### Trend: Steps vs Distance
+
+There is **near perfect correlation** that higher total steps leads to higher distance covered  
+Correlation coefficient of **0.98**  
+* The closer to 1.0, the stronger the positive correlation  
+
+```{r user activity scatter plot 1}
+ggplot(activity_filter_df) + 
+  geom_point(aes(total_steps, total_distance)) +
+  geom_smooth(aes(total_steps, total_distance), 
+              method = 'loess', formula = y~x) + 
+  labs(title = 'Steps vs Distance', 
+       subtitle = 'Correlation between steps and distance',
+       x = 'Total Steps', y = 'Total Distance (km)')
+```
+```{r}
+cor(activity_filter_df$total_steps, activity_filter_df$total_distance) %>% 
+  round(2)
+```
+
+--------------------------------------------------------------------------------
+
+#### Trend: Steps vs Calories
+
+There is a **moderate correlation** that higher total steps leads to higher calories burn  
+Correlation coefficient of **0.56**  
+* The closer to 1.0, the stronger the positive correlation  
+
+```{r user activity scatter plot 2}
+ggplot(activity_filter_df) + 
+  geom_point(aes(total_steps, calories)) +
+  geom_smooth(aes(total_steps, calories), 
+              method = 'loess', formula = y~x) + 
+  labs(title = 'Steps vs Calories', 
+       subtitle = 'Correlation between steps and calories', 
+       x = 'Total Steps', y = 'Total Calories')
+```
+```{r}
+cor(activity_filter_df$total_steps, activity_filter_df$calories) %>% 
+  round(2)
+```

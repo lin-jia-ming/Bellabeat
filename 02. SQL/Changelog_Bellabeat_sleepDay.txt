@@ -1,0 +1,32 @@
+# Changelog
+    - Dataset: FitBit Fitness Tracker Data (Kaggle)
+    - Table: sleepDay_merged.csv
+
+
+
+Version 1.0.1 (2021-05-30) by Lin Jiaming
+## Changes
+    - Convert SleepDay data type from datetime to date
+    - Convert TotalSleepRecords from int to character
+
+## Deletions
+    - Removed 3 duplicates (refer to script)
+
+
+
+Version 1.0.0 (Original)
+## Additions
+    - n/a
+    - n/a
+
+## Changes
+    - n/a
+    - n/a
+
+## Deletions
+    - n/a
+    - n/a
+
+## Note
+    - n/a
+    - n/a

@@ -1,0 +1,31 @@
+# Changelog
+    - Dataset: FitBit Fitness Tracker Data (Kaggle)
+    - Table: dailyActivity_merged.csv
+
+
+
+Version 1.0.1 (2021-05-30) by Lin Jiaming
+## Changes
+    - Convert ActivityDate data type from datetime to date
+
+## Note
+    - 78 out of 940 records where TotalSteps = 0 or TotalDistance = 0. Retained for specific analysis. But to exclude these 78 records for all other analysis.
+
+
+
+Version 1.0.0 (Original)
+## Additions
+    - n/a
+    - n/a
+
+## Changes
+    - n/a
+    - n/a
+
+## Deletions
+    - n/a
+    - n/a
+
+## Note
+    - n/a
+    - n/a

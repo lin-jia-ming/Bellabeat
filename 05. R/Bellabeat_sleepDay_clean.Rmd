@@ -1,0 +1,174 @@
+---
+title: "Google Data Analytics Capstone Project - Bellabeat"
+author: "Lin Jiaming"
+date: "4 June 2021"
+output: html_document
+---
+
+## Description
+
+**Activity:** Data Cleaning  
+**Dataset:** FitBit Fitness Tracker Data (Kaggle)  
+**Table:** sleepDay_merged.csv
+
+### Load Libraries
+
+```{r library, message=FALSE}
+library(tidyverse)
+library(janitor)
+library(lubridate)
+library(skimr)
+```
+
+### Import Data
+
+```{r import data, message=FALSE}
+sleep_df <- read_csv('sleepDay_merged.csv')
+```
+
+### Column Header Check
+
+Manually check column headers using glimpse function  
+
+```{r column header check}
+glimpse(sleep_df)
+```
+
+Clean column headers using clean_names function
+
+```{r column header clean}
+sleep_df <- clean_names(sleep_df)
+
+colnames(sleep_df)
+```
+
+### Data Type Check
+
+From glimpse, it is observed that:  
+
+* sleep_day data type is character  
+* id data type is double  
+* total_sleep_records data type is double  
+
+Convert:  
+
+* sleep_day data type to date  
+* id data type to factor  
+* total_sleep_records data type to factor  
+
+```{r data type}
+sleep_df$sleep_day <- sleep_df$sleep_day %>% 
+  mdy_hms() %>% 
+  as_date()
+
+sleep_df$id <- factor(sleep_df$id)
+sleep_df$total_sleep_records <- factor(sleep_df$total_sleep_records)
+```
+
+### Missing Values Check
+
+No missing values found
+
+```{r missing values}
+skim_without_charts(sleep_df)
+```
+
+### Duplicates Check
+
+Removed 3 duplicates
+
+```{r duplicates}
+# Duplicates are exactly the same in all fields
+sleep_df %>% 
+  group_by(id, sleep_day) %>% 
+  filter(n() > 1)
+```
+```{r duplicates removal}
+sleep_df <- distinct(sleep_df, id, sleep_day, .keep_all = TRUE)
+```
+
+### Extra Space Check
+
+Not applicable  
+No character data type
+
+### Inconsistent Field Length Check
+
+Not applicable
+
+### Date Range Check
+
+Start date = 2016-04-12  
+End date = 2016-05-12
+
+```{r date range}
+sleep_df %>% summarise(start_date = min(.$sleep_day), 
+                       end_date = max(.$sleep_day))
+```
+
+### Categorization Check
+
+3 categories for total_sleep_records
+
+```{r categorization}
+distinct(sleep_df, total_sleep_records)
+```
+
+### Data Count Check
+
+There are 410 total records  
+There are 24 unique users, and 31 unique dates  
+Not all users participated in tracking sleep
+
+```{r data count}
+sleep_df %>% summarise(record_cnt = nrow(.), 
+                       user_cnt = n_distinct(.$id), 
+                       date_cnt = n_distinct(.$sleep_day), 
+                       user_date_cnt = n_distinct(.$id, .$sleep_day))
+```
+
+Only 3 users tracked their data for all 31 days
+
+```{r users @ 31 days}
+sleep_df %>% 
+  group_by(id) %>% 
+  summarise(days_tracked = length(sleep_day)) %>% 
+  group_by(days_tracked) %>% 
+  summarise(user_count = length(id)) %>% 
+  arrange(-days_tracked)
+```
+
+19 out of 24 users did not track their data in running days  
+For older fitbits and most "pocket" models, you have to press a button ([Reference](https://www.quora.com/How-does-Fitbit-figure-out-that-Im-sleeping))
+
+```{r users @ running days}
+# Date_diff > 1 day indicates that users did not track their data in running days
+sleep_df %>% 
+  group_by(id) %>% 
+  summarise(date_diff = sleep_day - lag(sleep_day, 1)) %>% 
+  filter(date_diff != 1) %>% 
+  distinct(id) %>% 
+  nrow()
+```
+
+### Data Range Check
+
+total_minutes_asleep_max = 796min = 13.3 hours  
+total_minutes_asleep_min = 58min = 0.97 hours  
+
+total_time_in_bed_max = 961mins = 16 hours  
+total_time_in_bed_min = 61mins = 1.02 hours
+
+```{r data range}
+sleep_df %>% 
+  select(total_minutes_asleep, total_time_in_bed) %>% 
+  summary()
+```
+
+### Export Data
+
+Export table with all records and fields
+
+```{r export data}
+write_csv(sleep_df, 'sleepDay_clean.csv')
+```
